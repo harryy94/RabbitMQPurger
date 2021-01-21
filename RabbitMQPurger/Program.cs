@@ -15,27 +15,34 @@ namespace RabbitMQPurger
                 UserName = "guest",
                 Password = "guest",
                 VirtualHost = "/",
-                HostName = "localhost"
+                HostName = "localhost",
             };
 
-            var connection = rabbitMqClient.CreateConnection();
+            // Local
+            //var scheme = "http";
+            //var port = 15672;
 
-            IModel channel = connection.CreateModel();
+            // ENvironment
+            var scheme = "https";
+            var port = 443;
+
             string jsonResponse;
             using (var webClient = new WebClient())
             {
-                var request = $"http://{rabbitMqClient.HostName}:15672/api/queues";
+                var request = $"{scheme}://{rabbitMqClient.HostName}:{port}/api/queues";
 
                 webClient.Credentials = new NetworkCredential(rabbitMqClient.UserName, rabbitMqClient.Password);
+
                 jsonResponse = webClient.DownloadString(request);
-            }
 
-            var queues = JsonConvert.DeserializeObject<List<QueueResponse>>(jsonResponse);
+                var queues = JsonConvert.DeserializeObject<List<QueueResponse>>(jsonResponse);
 
-            foreach (var queue in queues)
-            {
-                Console.WriteLine("Purging " + queue.Name);
-                channel.QueuePurge(queue.Name);
+                foreach (var queue in queues)
+                {
+                    request = $"{scheme}://{rabbitMqClient.HostName}:{port}/api/queues/%2F/{queue.Name}/contents";
+                    webClient.UploadString(request, "DELETE", "");
+                    Console.WriteLine("Purging " + queue.Name);
+                }
             }
         }
 
